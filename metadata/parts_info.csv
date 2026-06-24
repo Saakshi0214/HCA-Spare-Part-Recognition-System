@@ -1,0 +1,7 @@
+﻿Part_Name,Part Code,Source PDF,Total Images,Machine Used In,Category,Rack Location,Bin Number,Commonly Sold,Remarks
+Part_01,P01-001,1.pdf,13,Industrial Sewing Machine,Feed Component,Rack A,Bin 01,Yes,Prototype dataset
+Part_02,P02-001,2.pdf,13,Industrial Sewing Machine,Feed Component,Rack A,Bin 02,Yes,Prototype dataset
+Part_03,P03-001,3.pdf,12,Industrial Sewing Machine,Feed Component,Rack A,Bin 03,Yes,Prototype dataset
+Part_04,P04-001,4.pdf,9,Industrial Sewing Machine,Needle Plate Assembly,Rack B,Bin 01,No,Prototype dataset
+Part_05,P05-001,5.pdf,9,Industrial Sewing Machine,Needle Plate Assembly,Rack B,Bin 02,No,Prototype dataset
+Part_06,P06-001,6.pdf,9,Industrial Sewing Machine,Needle Plate Assembly,Rack B,Bin 03,No,Prototype dataset

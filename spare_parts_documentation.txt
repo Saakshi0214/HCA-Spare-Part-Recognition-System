@@ -1,0 +1,116 @@
+Spare Parts Recognition System (Web App) - Documentation
+
+1. Abstract
+The Spare Parts Recognition System is an AI-based web application designed to identify mechanical spare parts from images. The system uses image processing and feature matching techniques to compare uploaded images with a dataset and returns the most similar part name along with a confidence score.
+
+2. Objective
+- To automate spare part identification using image processing.
+- To build a web-based interface for easy user access.
+- To improve accuracy using feature-based matching techniques.
+- To provide quick and reliable results for industrial use.
+
+3. Technologies Used
+
+Backend:
+- Python
+- Flask (Lightweight web framework)
+- OpenCV (Computer Vision Library)
+
+Frontend:
+- HTML
+- CSS
+- JavaScript
+
+Others:
+- NumPy
+- Dataset of spare part images
+
+4. System Architecture
+
+User Uploads Image
+        ↓
+Frontend (HTML/JS)
+        ↓
+Flask Backend API
+        ↓
+OpenCV Image Processing
+        ↓
+Feature Matching (ORB)
+        ↓
+Dataset Comparison
+        ↓
+Result Returned (Part Name + Confidence)
+        ↓
+Displayed on UI
+
+5. Modules Description
+
+5.1 User Interface Module
+- Upload image
+- Send image to backend
+- Display results
+
+5.2 Image Processing Module
+- Convert to grayscale
+- Resize image
+- Extract ORB features
+
+5.3 Matching Module
+- Compare with dataset images
+- Calculate similarity score
+- Return best match
+
+5.4 Backend API Module
+- Receive image
+- Process image
+- Return JSON response
+
+6. API Endpoint
+
+POST /predict
+
+Request:
+- image file (form-data)
+
+Response:
+{
+  "part": "Gear Box",
+  "confidence": 87,
+  "matches": 12
+}
+
+7. Dataset Structure
+
+dataset/
+├── Part_01/
+│   ├── img1.jpg
+│   ├── img2.jpg
+├── Part_02/
+│   ├── img1.jpg
+│   ├── img2.jpg
+
+Each folder represents one spare part category.
+
+8. Algorithms Used
+- ORB (Oriented FAST and Rotated BRIEF)
+- Brute Force Matcher
+- Feature distance scoring
+
+9. Advantages
+- Fast identification
+- Reduces manual work
+- Easy web interface
+
+10. Limitations
+- Depends on dataset quality
+- Sensitive to lighting and image quality
+- May fail on very similar parts
+
+11. Future Scope
+- Deep learning (CNN) integration
+- Mobile app version
+- Cloud deployment
+- Real-time detection
+
+12. Conclusion
+The system successfully demonstrates automation of spare part identification using computer vision and web technologies.

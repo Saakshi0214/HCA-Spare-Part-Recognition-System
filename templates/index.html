@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HCA - AI Spare Part Recognition System</title>
+    <meta name="description" content="AI-based computer vision portal to identify industrial sewing machine spare parts instantly. Developed for Hari Chand Anand & Co.">
+    <link rel="icon" type="image/png" href="/assets/logo.png">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Background Slideshow -->
+    <div class="bg-slideshow">
+        <div class="bg-slide" style="background-image: url('/assets/bg1.jpg'); opacity: 1;"></div>
+        <div class="bg-slide" style="background-image: url('/assets/bg2.png'); opacity: 0;"></div>
+        <div class="bg-slide" style="background-image: url('/assets/bg3.png'); opacity: 0;"></div>
+    </div>
+    <div class="bg-overlay"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="brand-section">
+                <img src="/assets/logo.png" alt="HCA Logo" class="logo">
+                <div class="brand-text">
+                    <h1>HCA SPARE PARTS</h1>
+                    <p>Hari Chand Anand & Co. | Computer Vision Engine</p>
+                </div>
+            </div>
+            
+            <div class="status-badge" id="statusBadge">
+                <span class="status-dot"></span>
+                <span id="statusText">Server Ready</span>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Layout -->
+        <main class="dashboard-grid">
+            <!-- Left Side: Interactive Input Panel -->
+            <section class="card" aria-labelledby="input-title">
+                <h2 class="card-title" id="input-title">Spare Part Image Source</h2>
+                
+                <div class="interactive-panel">
+                    <!-- File Drag and Drop Zone -->
+                    <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="Upload an image. Drag and drop file or click to browse.">
+                        <span class="drop-zone-icon">📥</span>
+                        <h3>Drag & Drop Image Here</h3>
+                        <p>Supports JPG, JPEG, and PNG formats</p>
+                    </div>
+
+                    <!-- Selected Image Preview Screen -->
+                    <div class="preview-container" id="previewContainer">
+                        <div class="laser-scanner" id="laserScanner"></div>
+                        <img src="" alt="Selected Spare Part Preview" class="preview-image" id="previewImage">
+                    </div>
+
+                    <!-- Interaction Actions Buttons -->
+                    <div class="btn-group">
+                        <input type="file" class="file-input" id="fileInput" accept=".jpg,.jpeg,.png">
+                        <button class="btn btn-primary" id="browseBtn">
+                            <span>📂</span> Browse Image
+                        </button>
+                        <button class="btn btn-accent" id="cameraBtn">
+                            <span>📷</span> Use Camera
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Side: Results Display Panel -->
+            <section class="card" aria-labelledby="results-title">
+                <div class="card-title" id="results-title">
+                    <span>Recognition Output</span>
+                    <button class="btn btn-secondary" id="clearBtn" style="display: none; width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 8px;">
+                        🔄 Clear
+                    </button>
+                </div>
+                
+                <div class="results-panel">
+                    <!-- Default Empty State -->
+                    <div class="empty-state" id="emptyState">
+                        <span class="empty-state-icon">🔍</span>
+                        <h3>Awaiting Input</h3>
+                        <p>Upload a file or capture a photo with your webcam to start the recognition pipeline.</p>
+                    </div>
+
+                    <!-- Processing / Analyzing Spinner -->
+                    <div class="loading-state" id="loadingState">
+                        <div class="spinner"></div>
+                        <h3>Analyzing Features...</h3>
+                        <p>Extracting ORB descriptors and matching against the database.</p>
+                    </div>
+
+                    <!-- Successful Recognition Output Details -->
+                    <div class="results-content" id="resultsContent">
+                        <!-- Recognition Banner Status -->
+                        <div class="result-banner" id="resultBanner">
+                            <span class="result-banner-icon" id="resultBannerIcon">✓</span>
+                            <div class="result-banner-text">
+                                <h4 id="resultPartName">Part Name Here</h4>
+                                <p id="resultSubtext">Spare part matching results details.</p>
+                            </div>
+                        </div>
+
+                        <!-- Confidence Level Gauge -->
+                        <div class="confidence-container">
+                            <div class="confidence-header">
+                                <span>Recognition Confidence</span>
+                                <span id="confidenceText">0%</span>
+                            </div>
+                            <div class="confidence-bar-bg">
+                                <div class="confidence-bar-fill" id="confidenceBar"></div>
+                            </div>
+                        </div>
+
+                        <!-- Metadata Properties Table -->
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Part Code</span>
+                                <span class="info-value" id="detailPartCode">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Category</span>
+                                <span class="info-value" id="detailCategory">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Machine Used In</span>
+                                <span class="info-value" id="detailMachine">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Commonly Sold</span>
+                                <span class="info-value" id="detailSold">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Rack Location</span>
+                                <span class="info-value" id="detailLocation">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Bin Number</span>
+                                <span class="info-value" id="detailBin">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Descriptor Matches</span>
+                                <span class="info-value" id="detailMatches">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Matching Speed</span>
+                                <span class="info-value" id="detailTime">-</span>
+                            </div>
+                            <div class="info-item full-width">
+                                <span class="info-label">Remarks / Description</span>
+                                <span class="info-value" id="detailRemarks">-</span>
+                            </div>
+                        </div>
+
+                        <!-- Warnings & Suggestions for bad matches -->
+                        <div class="advice-panel" id="advicePanel" style="display: none;">
+                            <h5>💡 Tips for Better Recognition</h5>
+                            <ul>
+                                <li>Ensure the spare part is centered and occupies most of the frame.</li>
+                                <li>Try to capture the image under brighter, uniform lighting.</li>
+                                <li>Place the item against a solid, contrasting background.</li>
+                                <li>Keep the camera lens clean and ensure the object is in focus.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Web Camera Capture Dialog Modal Overlay -->
+    <div class="modal" id="cameraModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📷 Browser Live Capture</h3>
+                <button class="modal-close" id="closeCameraBtn">&times;</button>
+            </div>
+            
+            <div class="webcam-viewport">
+                <video class="webcam-video" id="webcamVideo" autoplay playsinline></video>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-accent" id="captureFrameBtn" style="flex: 1.5;">
+                    📷 Capture Image
+                </button>
+                <button class="btn btn-secondary" id="cancelCameraBtn" onclick="document.getElementById('closeCameraBtn').click()" style="flex: 1;">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        &copy; 2026 Hari Chand Anand & Co. All Rights Reserved. | Spare Parts Recognition Portal v1.0.0
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
