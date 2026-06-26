@@ -2,6 +2,7 @@ import cv2
 import os
 import csv
 import sys
+import numpy as np
 
 # =====================================
 # EXE / PYTHON PATH HANDLING
@@ -20,6 +21,56 @@ CSV_PATH = os.path.join(
 )
 
 # =====================================
+# IMAGE PREPROCESSING HELPER
+# =====================================
+
+def preprocess_image(img):
+    """Resizes an image while preserving aspect ratio, ensuring the maximum dimension is 800."""
+    h, w = img.shape[:2]
+    max_dim = 800
+    if h > w:
+        new_h = max_dim
+        new_w = int(w * (max_dim / h))
+    else:
+        new_w = max_dim
+        new_h = int(h * (max_dim / w))
+    return cv2.resize(img, (new_w, new_h))
+
+# =====================================
+# GEOMETRIC HOMOGRAPHY VERIFICATION
+# =====================================
+
+def verify_homography(M, w, h):
+    """Verifies if the homography matrix represents a physically plausible 2D projection.
+    Projects the corners of the database image and checks if the projected polygon is convex and has a reasonable area.
+    """
+    if M is None:
+        return False
+    # Corners of the database image
+    corners = np.float32([[0, 0], [w, 0], [w, h], [0, h]]).reshape(-1, 1, 2)
+    try:
+        projected = cv2.perspectiveTransform(corners, M)
+    except:
+        return False
+    # Check convexity
+    if not cv2.isContourConvex(np.array(projected, dtype=np.int32)):
+        return False
+    # Check area of projected polygon
+    area = cv2.contourArea(projected)
+    original_area = w * h
+    if area < 0.05 * original_area or area > 5.0 * original_area:
+        return False
+    # Check aspect ratio of projected bounding box
+    rect = cv2.minAreaRect(projected)
+    (cx, cy), (rw, rh), angle = rect
+    if rw == 0 or rh == 0:
+        return False
+    aspect_ratio = max(rw / rh, rh / rw)
+    if aspect_ratio > 6.0:
+        return False
+    return True
+
+# =====================================
 # IN-MEMORY DATASET CACHE (OPTIMIZATION)
 # =====================================
 
@@ -27,7 +78,7 @@ DATASET_CACHE = []
 DATASET_CACHE_LOADED = False
 
 def preload_dataset(force=False):
-    """Loads all dataset images, resizes them, extracts ORB features, and caches them in memory.
+    """Loads all dataset images, resizes them preserving aspect ratio, extracts ORB features, and caches them in memory.
     This speeds up subsequent recognize_part calls by up to 50x.
     """
     global DATASET_CACHE, DATASET_CACHE_LOADED
@@ -41,7 +92,7 @@ def preload_dataset(force=False):
         return
 
     print(f"Preloading HCA Spare Parts dataset from: {DATASET_PATH}")
-    orb = cv2.ORB_create(500)
+    orb = cv2.ORB_create(1000)
     loaded_count = 0
 
     for part_folder in os.listdir(DATASET_PATH):
@@ -55,14 +106,34 @@ def preload_dataset(force=False):
             if img is None:
                 continue
 
-            img = cv2.resize(img, (800, 600))
-            kp, des = orb.detectAndCompute(img, None)
+            img = preprocess_image(img)
+            
+            # Threshold to find part (metal is darker than paper background)
+            _, mask = cv2.threshold(img, 130, 255, cv2.THRESH_BINARY_INV)
+            
+            # Clean margins
+            h, w = mask.shape
+            margin_y = int(h * 0.10)
+            margin_x = int(w * 0.10)
+            mask[:margin_y, :] = 0
+            mask[-margin_y:, :] = 0
+            mask[:, :margin_x] = 0
+            mask[:, -margin_x:] = 0
+            
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            
+            kp, des = orb.detectAndCompute(img, mask)
             if des is None:
                 continue
 
+            h, w = img.shape[:2]
             DATASET_CACHE.append({
                 "part": part_folder,
-                "des": des
+                "des": des,
+                "kp": kp,
+                "w": w,
+                "h": h
             })
             loaded_count += 1
 
@@ -91,13 +162,10 @@ def recognize_part(test_image_path):
             "details": None
         }
 
-    test_img = cv2.resize(
-        test_img,
-        (800, 600)
-    )
+    test_img = preprocess_image(test_img)
 
     # ORB Detector
-    orb = cv2.ORB_create(500)
+    orb = cv2.ORB_create(1000)
 
     kp1, des1 = orb.detectAndCompute(
         test_img,
@@ -125,22 +193,37 @@ def recognize_part(test_image_path):
     # =====================================
 
     if DATASET_CACHE:
-        # Match using memory-cached descriptors
+        # Match using memory-cached descriptors and verify geometry with RANSAC
         for entry in DATASET_CACHE:
             des2 = entry["des"]
-            bf = cv2.BFMatcher(
-                cv2.NORM_HAMMING,
-                crossCheck=True
-            )
+            kp2 = entry["kp"]
+            w2 = entry["w"]
+            h2 = entry["h"]
+            bf = cv2.BFMatcher(cv2.NORM_HAMMING)
             try:
-                matches = bf.match(des1, des2)
-                match_count = len(matches)
-                if match_count > best_match_count:
-                    best_match_count = match_count
+                matches = bf.knnMatch(des1, des2, k=2)
+                good_matches = []
+                for m_n in matches:
+                    if len(m_n) == 2:
+                        m, n = m_n
+                        if m.distance < 0.75 * n.distance:
+                            good_matches.append(m)
+                
+                inliers = 0
+                if len(good_matches) >= 8:
+                    src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+                    dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+                    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+                    if mask is not None:
+                        if verify_homography(M, w2, h2):
+                            inliers = int(np.sum(mask))
+                
+                if inliers > best_match_count:
+                    best_match_count = inliers
                     best_part = entry["part"]
             except Exception as e:
-                # Handle potential mismatch in descriptor dimensions/types gracefully
-                print(f"BFMatcher Error: {e}")
+                # Handle potential mismatch gracefully
+                print(f"BFMatcher/RANSAC Error: {e}")
                 continue
     else:
         # Fallback to slow disk comparison if cache failed or is empty
@@ -175,29 +258,54 @@ def recognize_part(test_image_path):
                 if img is None:
                     continue
 
-                img = cv2.resize(
-                    img,
-                    (800, 600)
-                )
+                img = preprocess_image(img)
+                
+                # Threshold to find part
+                _, mask = cv2.threshold(img, 130, 255, cv2.THRESH_BINARY_INV)
+                
+                # Clean margins
+                h, w = mask.shape
+                margin_y = int(h * 0.10)
+                margin_x = int(w * 0.10)
+                mask[:margin_y, :] = 0
+                mask[-margin_y:, :] = 0
+                mask[:, :margin_x] = 0
+                mask[:, -margin_x:] = 0
+                
+                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+                mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
 
                 kp2, des2 = orb.detectAndCompute(
                     img,
-                    None
+                    mask
                 )
                 if des2 is None:
                     continue
 
-                bf = cv2.BFMatcher(
-                    cv2.NORM_HAMMING,
-                    crossCheck=True
-                )
-                matches = bf.match(
-                    des1,
-                    des2
-                )
-                match_count = len(matches)
-                if match_count > folder_best:
-                    folder_best = match_count
+                bf = cv2.BFMatcher(cv2.NORM_HAMMING)
+                matches = bf.knnMatch(des1, des2, k=2)
+                good_matches = []
+                for m_n in matches:
+                    if len(m_n) == 2:
+                        m, n = m_n
+                        if m.distance < 0.75 * n.distance:
+                            good_matches.append(m)
+                            
+                h2, w2 = img.shape[:2]
+                inliers = 0
+                if len(good_matches) >= 8:
+                    src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+                    dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+                    try:
+                        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+                        if mask is not None:
+                            if verify_homography(M, w2, h2):
+                                inliers = int(np.sum(mask))
+                    except:
+                        pass
+                
+                if inliers > folder_best:
+                    folder_best = inliers
 
             if folder_best > best_match_count:
                 best_match_count = folder_best
@@ -207,18 +315,15 @@ def recognize_part(test_image_path):
     # CONFIDENCE CALCULATION
     # =====================================
 
-    confidence = (
-        best_match_count / 500
-    ) * 100
-
-    if confidence > 100:
-        confidence = 100
-
     # Reject weak matches
-    if best_match_count < 40:
+    if best_match_count < 12:
 
         best_part = "Unknown"
-        confidence = 0
+        confidence = 0.0
+    else:
+        confidence = (best_match_count / 30.0) * 100.0
+        if confidence > 100.0:
+            confidence = 100.0
 
     # =====================================
     # LOAD METADATA

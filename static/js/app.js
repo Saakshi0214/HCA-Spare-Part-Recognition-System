@@ -163,13 +163,13 @@ document.addEventListener('DOMContentLoaded', () => {
         setUIState('done');
         
         if (data.part === 'Unknown' || data.confidence < 40) {
-            statusText.innerText = 'Not Identified';
+            statusText.innerText = 'Not in Database';
             statusBadge.className = 'status-badge error';
             
             resultBanner.className = 'result-banner not-found';
             resultBannerIcon.innerText = '❌';
-            resultPartName.innerText = 'Part Unidentified';
-            resultSubtext.innerText = 'Computer vision matches fell below confidence threshold.';
+            resultPartName.innerText = 'Part Not in Database';
+            resultSubtext.innerText = 'This image does not contain a recognized spare part or it is not in the database.';
             
             confidenceText.innerText = '0%';
             confidenceBar.style.width = '0%';
@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
             detailSold.innerHTML = '<span class="text-muted">N/A</span>';
             detailRemarks.innerHTML = '<span class="text-muted">N/A</span>';
             
-            detailMatches.innerText = `${data.matches} features (min 40 required)`;
+            detailMatches.innerText = `${data.matches} inliers (min 12 required)`;
             detailTime.innerText = `${data.processingTimeMs} ms`;
             
             advicePanel.style.display = 'flex';
@@ -268,6 +268,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function openWebcamModal() {
+        // Check if webcam API is available (requires HTTPS or localhost in modern browsers)
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.warn('getUserMedia not supported in this browser or context. Falling back to native device camera.');
+            triggerCameraFallback();
+            return;
+        }
+
         cameraModal.style.display = 'flex';
         
         // Request browser camera stream
@@ -284,9 +291,33 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(err => {
             console.error('Camera Access Error:', err);
-            alert('Failed to access camera: ' + err.message + '\nMake sure permissions are granted.');
+            // If webcam access fails (e.g. permission denied), offer fallback to native device camera
+            const useFallback = confirm('Failed to access live webcam: ' + err.message + '\n\nWould you like to capture a photo using your device\'s native camera app instead?');
             closeWebcamModal();
+            if (useFallback) {
+                triggerCameraFallback();
+            }
         });
+    }
+
+    function triggerCameraFallback() {
+        // Temporarily configure fileInput for camera capture
+        fileInput.setAttribute('capture', 'environment');
+        
+        // Setup a one-time change handler to clean up the capture attribute
+        const resetCapture = () => {
+            fileInput.removeAttribute('capture');
+            fileInput.removeEventListener('change', resetCapture);
+        };
+        fileInput.addEventListener('change', resetCapture);
+        
+        // Trigger file select dialog (opens native camera on mobile devices)
+        fileInput.click();
+        
+        // Clean up after a delay in case the dialog is cancelled
+        setTimeout(() => {
+            fileInput.removeAttribute('capture');
+        }, 30000);
     }
 
     function closeWebcamModal() {
