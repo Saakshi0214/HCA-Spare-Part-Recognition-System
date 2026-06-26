@@ -1,9 +1,12 @@
 import os
 import time
 from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask_cors import CORS
 from recognition_system import recognize_part, preload_dataset
 
 app = Flask(__name__)
+CORS(app)
+
 
 # Configure upload folder
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')

@@ -1,4 +1,13 @@
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+// If you are hosting the frontend on GitHub Pages and the backend on Render,
+// set this variable to your Render app URL (e.g., 'https://hca-backend.onrender.com').
+// If both frontend and backend are hosted on the same server, leave it empty ('').
+const BACKEND_URL = 'https://hca-spare-part-recognition-system.onrender.com';
+
 document.addEventListener('DOMContentLoaded', () => {
+
     // DOM Elements
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -8,16 +17,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewContainer = document.getElementById('previewContainer');
     const previewImage = document.getElementById('previewImage');
     const laserScanner = document.getElementById('laserScanner');
-    
+
     // Status Badge
     const statusText = document.getElementById('statusText');
     const statusBadge = document.getElementById('statusBadge');
-    
+
     // States
     const emptyState = document.getElementById('emptyState');
     const loadingState = document.getElementById('loadingState');
     const resultsContent = document.getElementById('resultsContent');
-    
+
     // Result details
     const resultPartName = document.getElementById('resultPartName');
     const resultSubtext = document.getElementById('resultSubtext');
@@ -25,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultBannerIcon = document.getElementById('resultBannerIcon');
     const confidenceText = document.getElementById('confidenceText');
     const confidenceBar = document.getElementById('confidenceBar');
-    
+
     // Metadata table elements
     const detailPartCode = document.getElementById('detailPartCode');
     const detailCategory = document.getElementById('detailCategory');
@@ -36,21 +45,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const detailMatches = document.getElementById('detailMatches');
     const detailTime = document.getElementById('detailTime');
     const detailRemarks = document.getElementById('detailRemarks');
-    
+
     // Advice Panel
     const advicePanel = document.getElementById('advicePanel');
-    
+
     // Webcam elements
     const cameraModal = document.getElementById('cameraModal');
     const webcamVideo = document.getElementById('webcamVideo');
     const captureFrameBtn = document.getElementById('captureFrameBtn');
     const closeCameraBtn = document.getElementById('closeCameraBtn');
-    
+
     let webcamStream = null;
 
     // Trigger browse file
     browseBtn.addEventListener('click', () => fileInput.click());
-    
+
     fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
             handleFile(e.target.files[0]);
@@ -102,27 +111,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Call predict API
     function uploadImage(fileBlob) {
         setUIState('processing');
-        
+
         const formData = new FormData();
         formData.append('image', fileBlob, 'upload.jpg');
 
-        fetch('/predict', {
+        fetch(`${BACKEND_URL}/predict`, {
             method: 'POST',
             body: formData
         })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(err => { throw new Error(err.error || 'Server error occurred'); });
-            }
-            return response.json();
-        })
-        .then(data => {
-            renderResults(data);
-        })
-        .catch(err => {
-            console.error('Recognition error:', err);
-            renderError(err.message);
-        });
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.error || 'Server error occurred'); });
+                }
+                return response.json();
+            })
+            .then(data => {
+                renderResults(data);
+            })
+            .catch(err => {
+                console.error('Recognition error:', err);
+                renderError(err.message);
+            });
     }
 
     // Handle UI state changes
@@ -143,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingState.style.display = 'flex';
             resultsContent.style.display = 'none';
             clearBtn.style.display = 'none';
-            
+
             // Disable buttons during processing to prevent spamming
             browseBtn.disabled = true;
             cameraBtn.disabled = true;
@@ -152,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingState.style.display = 'none';
             resultsContent.style.display = 'flex';
             clearBtn.style.display = 'inline-flex';
-            
+
             browseBtn.disabled = false;
             cameraBtn.disabled = false;
         }
@@ -161,19 +170,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Render recognition details
     function renderResults(data) {
         setUIState('done');
-        
+
         if (data.part === 'Unknown' || data.confidence < 40) {
             statusText.innerText = 'Not in Database';
             statusBadge.className = 'status-badge error';
-            
+
             resultBanner.className = 'result-banner not-found';
             resultBannerIcon.innerText = '❌';
             resultPartName.innerText = 'Part Not in Database';
             resultSubtext.innerText = 'This image does not contain a recognized spare part or it is not in the database.';
-            
+
             confidenceText.innerText = '0%';
             confidenceBar.style.width = '0%';
-            
+
             // Populate fallback info
             detailPartCode.innerHTML = '<span class="text-muted">N/A</span>';
             detailCategory.innerHTML = '<span class="text-muted">N/A</span>';
@@ -182,25 +191,25 @@ document.addEventListener('DOMContentLoaded', () => {
             detailBin.innerHTML = '<span class="text-muted">N/A</span>';
             detailSold.innerHTML = '<span class="text-muted">N/A</span>';
             detailRemarks.innerHTML = '<span class="text-muted">N/A</span>';
-            
+
             detailMatches.innerText = `${data.matches} inliers (min 12 required)`;
             detailTime.innerText = `${data.processingTimeMs} ms`;
-            
+
             advicePanel.style.display = 'flex';
         } else {
             statusText.innerText = 'Part Identified';
             statusBadge.className = 'status-badge';
-            
+
             resultBanner.className = 'result-banner';
             resultBannerIcon.innerText = '✓';
             resultPartName.innerText = data.part;
             resultSubtext.innerText = `Spare part recognized with ${data.confidence}% confidence.`;
-            
+
             confidenceText.innerText = `${data.confidence}%`;
             confidenceBar.style.width = `${data.confidence}%`;
-            
+
             const details = data.details || {};
-            
+
             // Populate actual details
             detailPartCode.innerHTML = details['Part Code'] ? `<span class="badge-chip">${details['Part Code']}</span>` : '<span class="text-muted">N/A</span>';
             detailCategory.innerText = details['Category'] || 'Feed Component';
@@ -209,10 +218,10 @@ document.addEventListener('DOMContentLoaded', () => {
             detailBin.innerHTML = details['Bin Number'] ? `<span class="badge-chip accent">${details['Bin Number']}</span>` : '<span class="text-muted">N/A</span>';
             detailSold.innerText = details['Commonly Sold'] || 'N/A';
             detailRemarks.innerText = details['Remarks'] || 'No additional remarks';
-            
+
             detailMatches.innerText = `${data.matches} descriptors`;
             detailTime.innerText = `${data.processingTimeMs} ms`;
-            
+
             advicePanel.style.display = 'none';
         }
     }
@@ -222,15 +231,15 @@ document.addEventListener('DOMContentLoaded', () => {
         setUIState('done');
         statusText.innerText = 'System Error';
         statusBadge.className = 'status-badge error';
-        
+
         resultBanner.className = 'result-banner not-found';
         resultBannerIcon.innerText = '⚠';
         resultPartName.innerText = 'Analysis Error';
         resultSubtext.innerText = message || 'An error occurred while matching descriptors.';
-        
+
         confidenceText.innerText = '0%';
         confidenceBar.style.width = '0%';
-        
+
         detailPartCode.innerText = 'Error';
         detailCategory.innerText = 'Error';
         detailMachine.innerText = 'Error';
@@ -240,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         detailMatches.innerText = '0';
         detailTime.innerText = 'N/A';
         detailRemarks.innerText = 'Error processing request.';
-        
+
         advicePanel.style.display = 'none';
     }
 
@@ -256,10 +265,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================
     // CAMERA / WEBCAM MANAGEMENT
     // =====================================
-    
+
     cameraBtn.addEventListener('click', openWebcamModal);
     closeCameraBtn.addEventListener('click', closeWebcamModal);
-    
+
     // Close modal if user clicks outside of content box
     cameraModal.addEventListener('click', (e) => {
         if (e.target === cameraModal) {
@@ -276,44 +285,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         cameraModal.style.display = 'flex';
-        
+
         // Request browser camera stream
-        navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                width: { ideal: 1280 }, 
+        navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 1280 },
                 height: { ideal: 720 },
                 facingMode: "environment" // Prefer rear camera on mobile
-            } 
-        })
-        .then(stream => {
-            webcamStream = stream;
-            webcamVideo.srcObject = stream;
-        })
-        .catch(err => {
-            console.error('Camera Access Error:', err);
-            // If webcam access fails (e.g. permission denied), offer fallback to native device camera
-            const useFallback = confirm('Failed to access live webcam: ' + err.message + '\n\nWould you like to capture a photo using your device\'s native camera app instead?');
-            closeWebcamModal();
-            if (useFallback) {
-                triggerCameraFallback();
             }
-        });
+        })
+            .then(stream => {
+                webcamStream = stream;
+                webcamVideo.srcObject = stream;
+            })
+            .catch(err => {
+                console.error('Camera Access Error:', err);
+                // If webcam access fails (e.g. permission denied), offer fallback to native device camera
+                const useFallback = confirm('Failed to access live webcam: ' + err.message + '\n\nWould you like to capture a photo using your device\'s native camera app instead?');
+                closeWebcamModal();
+                if (useFallback) {
+                    triggerCameraFallback();
+                }
+            });
     }
 
     function triggerCameraFallback() {
         // Temporarily configure fileInput for camera capture
         fileInput.setAttribute('capture', 'environment');
-        
+
         // Setup a one-time change handler to clean up the capture attribute
         const resetCapture = () => {
             fileInput.removeAttribute('capture');
             fileInput.removeEventListener('change', resetCapture);
         };
         fileInput.addEventListener('change', resetCapture);
-        
+
         // Trigger file select dialog (opens native camera on mobile devices)
         fileInput.click();
-        
+
         // Clean up after a delay in case the dialog is cancelled
         setTimeout(() => {
             fileInput.removeAttribute('capture');
@@ -322,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeWebcamModal() {
         cameraModal.style.display = 'none';
-        
+
         // Stop stream and release webcam resources
         if (webcamStream) {
             webcamStream.getTracks().forEach(track => track.stop());
@@ -339,10 +348,10 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.width = webcamVideo.videoWidth || 640;
         canvas.height = webcamVideo.videoHeight || 480;
         const ctx = canvas.getContext('2d');
-        
+
         // Draw frame
         ctx.drawImage(webcamVideo, 0, 0, canvas.width, canvas.height);
-        
+
         // Extract canvas image data as blob
         canvas.toBlob((blob) => {
             if (blob) {
@@ -351,7 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 previewImage.src = url;
                 dropZone.style.display = 'none';
                 previewContainer.style.display = 'flex';
-                
+
                 // Submit blob
                 uploadImage(blob);
             }
